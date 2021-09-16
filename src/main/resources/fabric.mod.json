@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "id": "modid",
+  "id": "simple_routed_pipes",
   "version": "${version}",
 
-  "name": "Example Mod",
-  "description": "This is an example description! Tell everyone what your mod is about!",
+  "name": "Simple Routed Pipes",
+  "description": "Adds new pipes to Simple Pipes",
   "authors": [
-    "Me!"
+    "128_bit_guy"
   ],
   "contact": {
     "homepage": "https://fabricmc.net/",
@@ -14,16 +14,19 @@
   },
 
   "license": "CC0-1.0",
-  "icon": "assets/modid/icon.png",
+  "icon": "assets/simple_routed_pipes/icon.png",
 
   "environment": "*",
   "entrypoints": {
     "main": [
-      "net.fabricmc.example.ExampleMod"
+      "_128_bit_guy.simple_routed_pipes.SRP"
+    ],
+    "client": [
+      "_128_bit_guy.simple_routed_pipes.SRPClient"
     ]
   },
   "mixins": [
-    "modid.mixins.json"
+    "simple_routed_pipes.mixins.json"
   ],
 
   "depends": {
