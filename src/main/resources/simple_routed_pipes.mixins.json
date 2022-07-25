@@ -5,7 +5,8 @@
   "compatibilityLevel": "JAVA_16",
   "mixins": [
     "PipeSpFlowItemMixin",
-    "TravellingItemAccessor"
+    "TravellingItemAccessor",
+    "SimpleRegistryMixin"
   ],
   "client": [
     "PipeBaseModelGenStandardMixin",
