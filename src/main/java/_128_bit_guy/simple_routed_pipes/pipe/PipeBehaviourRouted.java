@@ -25,7 +25,7 @@ import net.minecraft.world.World;
 
 import java.util.*;
 
-public class PipeBehaviourRouted extends PipeSpBehaviour {
+public abstract class PipeBehaviourRouted extends PipeSpBehaviour {
     private static final Set<BlockPos> WAS = new HashSet<>();
     private final Map<Direction, PipeNetworkConnectionData> connectionDatas;
     public long netId = 0;
@@ -189,6 +189,8 @@ public class PipeBehaviourRouted extends PipeSpBehaviour {
             }
         }
     }
+
+    public abstract List<PipeNetworkElement> getNetworkElements();
 
     public Text getDebugText() {
         return new LiteralText(pipeId.toString() + ": " + netId);
