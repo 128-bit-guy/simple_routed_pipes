@@ -1,6 +1,7 @@
 package _128_bit_guy.simple_routed_pipes.pipe;
 
 import _128_bit_guy.simple_routed_pipes.mixin.TravellingItemAccessor;
+import _128_bit_guy.simple_routed_pipes.util.NbtUtil;
 import alexiil.mc.lib.multipart.api.MultipartContainer;
 import alexiil.mc.lib.multipart.api.MultipartUtil;
 import alexiil.mc.mod.pipes.blocks.BlockPipe;
@@ -14,6 +15,9 @@ import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.nbt.NbtCompound;
+import net.minecraft.nbt.NbtHelper;
+import net.minecraft.text.LiteralText;
+import net.minecraft.text.Text;
 import net.minecraft.util.Pair;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Direction;
@@ -28,11 +32,13 @@ public class PipeBehaviourRouted extends PipeSpBehaviour {
     public PipeNetwork network;
     private byte hasNetworkConnection;
     private boolean connectionDatasDirty = false;
+    public UUID pipeId;
 
     public PipeBehaviourRouted(PartSpPipe pipe) {
         super(pipe);
         hasNetworkConnection = (byte) ThreadLocalRandom.current().nextInt(0, 1 << 6);
         connectionDatas = new EnumMap<>(Direction.class);
+        pipeId = UUID.randomUUID();
     }
 
     private static boolean hasBlockPipe(World world, BlockPos pos) {
@@ -107,6 +113,7 @@ public class PipeBehaviourRouted extends PipeSpBehaviour {
         super.fromNbt(nbt);
         hasNetworkConnection = nbt.getByte("hasNetworkConnection");
         netId = nbt.getLong("networkId");
+        pipeId = NbtUtil.toUuidSafe(nbt.get("pipeId"));
     }
 
     @Override
@@ -114,12 +121,14 @@ public class PipeBehaviourRouted extends PipeSpBehaviour {
         NbtCompound tag = super.toNbt();
         tag.putByte("hasNetworkConnection", hasNetworkConnection);
         tag.putLong("networkId", netId);
+        tag.put("pipeId", NbtHelper.fromUuid(pipeId));
         return tag;
     }
 
     private void networkDfs(PipeNetwork network) {
         if (this.network == null || this.network.refreshTime != network.refreshTime) {
             this.network = network;
+            network.addPipe(this);
             for (Direction direction : Direction.values()) {
                 if (pipe.isConnected(direction)) {
                     if (!connectionDatas.containsKey(direction) || connectionDatas.get(direction).refreshTime != pipe.getWorldTime()) {
@@ -179,5 +188,9 @@ public class PipeBehaviourRouted extends PipeSpBehaviour {
                 pipe.refreshModel();
             }
         }
+    }
+
+    public Text getDebugText() {
+        return new LiteralText(pipeId.toString() + ": " + netId);
     }
 }

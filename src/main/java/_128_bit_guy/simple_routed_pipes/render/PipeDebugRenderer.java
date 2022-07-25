@@ -11,7 +11,7 @@ import net.minecraft.util.math.Matrix4f;
 
 public class PipeDebugRenderer {
     public static void render(PipeBehaviourRouted b, float tickDelta, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, int overlay) {
-        Text text = new LiteralText(Long.toString(b.netId));
+        Text text = b.getDebugText();
         matrices.push();
         matrices.translate(0.5D, 1f, 0.5D);
         MinecraftClient mc = MinecraftClient.getInstance();
