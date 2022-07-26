@@ -1,7 +1,10 @@
 package _128_bit_guy.simple_routed_pipes.pipe;
 
 import _128_bit_guy.simple_routed_pipes.mixin.TravellingItemAccessor;
+import _128_bit_guy.simple_routed_pipes.pipe.path.ItemPath;
+import _128_bit_guy.simple_routed_pipes.pipe.path.ItemPathfinder;
 import _128_bit_guy.simple_routed_pipes.util.NbtUtil;
+import alexiil.mc.lib.attributes.Simulation;
 import alexiil.mc.lib.multipart.api.MultipartContainer;
 import alexiil.mc.lib.multipart.api.MultipartUtil;
 import alexiil.mc.mod.pipes.blocks.BlockPipe;
@@ -14,6 +17,7 @@ import io.netty.util.internal.ThreadLocalRandom;
 import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import net.minecraft.block.entity.BlockEntity;
+import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtHelper;
 import net.minecraft.text.LiteralText;
@@ -99,12 +103,59 @@ public abstract class PipeBehaviourRouted extends PipeSpBehaviour {
         return (PipeFlowRouted) pipe.flow;
     }
 
+    public Direction getMovementDirection(UUID uuid) {
+        for(Direction direction : Direction.values()) {
+            PipeNetworkConnectionData connectionData = getConnectionData(direction);
+            if(connectionData != null) {
+                for (Pair<PipeBehaviourRouted, Direction> b : connectionData.parts) {
+                    if (b.getLeft().pipeId.equals(uuid)) {
+                        return direction;
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
     public Object2IntMap<Direction> splitItem(TravellingItem item) {
         if(isActive()) {
-            TravellingItemAccessor accessor = (TravellingItemAccessor) item;
             Object2IntMap<Direction> map = new Object2IntOpenHashMap<>();
-            map.put(accessor.getSide(), item.stack.getCount());
+            final ItemStack[] leftStack = {item.stack.copy()};
+            Map<PipeBehaviourRouted, List<PipeNetworkElement>> elements = new HashMap<>();
+            for(PipeNetworkElement element : network.storageProviders) {
+                if(element.getInsertionExcess(leftStack[0]).getCount() != leftStack[0].getCount()) {
+                    elements.computeIfAbsent(element.getPipe(), p -> new ArrayList<>()).add(element);
+                }
+            }
+            ItemPathfinder.findPath(this, elements.keySet(), node -> {
+                ItemPath path = ItemPathfinder.buildPath(node);
+                path.onNodeReached();
+                if(path.isCompleted()) {
+                    for(Direction direction : Direction.values()) {
+                        ItemStack excess = pipe.getItemInsertable(direction).attemptInsertion(
+                                leftStack[0],
+                                Simulation.SIMULATE
+                        );
+                        map.put(direction, map.computeIfAbsent(direction, d -> 0) + leftStack[0].getCount() - excess.getCount());
+                        leftStack[0] = excess;
+                    }
+                } else {
+                    Direction direction = getMovementDirection(path.getNextNode());
+                    for(PipeNetworkElement element : elements.get(node.pipe)) {
+                        ItemStack excess = element.getInsertionExcess(leftStack[0]);
+                        map.put(direction, map.computeIfAbsent(direction, d -> 0) + leftStack[0].getCount() - excess.getCount());
+                        leftStack[0] = excess;
+                        if(leftStack[0].getCount() == 0) {
+                            return true;
+                        }
+                    }
+                }
+                return false;
+            });
             return map;
+//            TravellingItemAccessor accessor = (TravellingItemAccessor) item;
+//            map.put(accessor.getSide(), item.stack.getCount());
+//            return map;
         } else {
             return null;
         }
@@ -165,6 +216,10 @@ public abstract class PipeBehaviourRouted extends PipeSpBehaviour {
                 }
             }
         }
+    }
+
+    public PipeNetworkConnectionData getConnectionData(Direction direction) {
+        return connectionDatas.get(direction);
     }
 
     @Override

@@ -1,7 +1,9 @@
 package _128_bit_guy.simple_routed_pipes.pipe;
 
+import alexiil.mc.lib.attributes.Simulation;
 import alexiil.mc.lib.attributes.item.ItemAttributes;
 import alexiil.mc.mod.pipes.pipe.PartSpPipe;
+import net.minecraft.item.ItemStack;
 import net.minecraft.util.math.Direction;
 
 import java.util.Collections;
@@ -36,5 +38,14 @@ public class PipeBehaviourBasic extends PipeBehaviourRouted implements PipeNetwo
             }
         }
         return false;
+    }
+
+    @Override
+    public ItemStack getInsertionExcess(ItemStack stack) {
+        ItemStack leftStack = stack;
+        for(Direction direction : Direction.values()) {
+            leftStack = pipe.getItemInsertable(direction).attemptInsertion(leftStack, Simulation.SIMULATE);
+        }
+        return leftStack;
     }
 }
