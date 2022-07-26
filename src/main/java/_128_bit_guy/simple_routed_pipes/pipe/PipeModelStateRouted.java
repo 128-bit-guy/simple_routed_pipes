@@ -8,10 +8,12 @@ import java.util.Objects;
 
 public class PipeModelStateRouted extends TilePipe.PipeBlockModelState {
     private final byte networkConnections;
+    public final boolean isActive;
 
-    public PipeModelStateRouted(PipeSpDef def, byte isConnected, byte hasNetworkConnection) {
+    public PipeModelStateRouted(PipeSpDef def, byte isConnected, byte hasNetworkConnection, boolean isActive) {
         super(def, isConnected);
         networkConnections = hasNetworkConnection;
+        this.isActive = isActive;
     }
 
     public boolean hasNetworkConnection(Direction dir) {
@@ -24,11 +26,11 @@ public class PipeModelStateRouted extends TilePipe.PipeBlockModelState {
         if (o == null || getClass() != o.getClass()) return false;
         if (!super.equals(o)) return false;
         PipeModelStateRouted that = (PipeModelStateRouted) o;
-        return networkConnections == that.networkConnections;
+        return networkConnections == that.networkConnections && isActive == that.isActive;
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(super.hashCode(), networkConnections);
+        return Objects.hash(super.hashCode(), networkConnections, isActive);
     }
 }

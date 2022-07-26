@@ -33,6 +33,7 @@ public abstract class PipeBehaviourRouted extends PipeSpBehaviour {
     private byte hasNetworkConnection;
     private boolean connectionDatasDirty = false;
     public UUID pipeId;
+    public boolean active;
 
     public PipeBehaviourRouted(PartSpPipe pipe) {
         super(pipe);
@@ -68,7 +69,7 @@ public abstract class PipeBehaviourRouted extends PipeSpBehaviour {
         }
     }
 
-    private static void connectionDfs(World world, BlockPos pos, Direction direction, PipeNetworkConnectionData data) {
+    private static void connectionDfs(World world, BlockPos pos, Direction direction, PipeNetworkConnectionData data, PipeNetwork network) {
         if (world.isChunkLoaded(pos)) {
             PipeSpBehaviour behaviour = getPipeBehaviour(world, pos);
             if (behaviour instanceof PipeBehaviourRouted) {
@@ -85,10 +86,12 @@ public abstract class PipeBehaviourRouted extends PipeSpBehaviour {
                 ISimplePipe pipe = behaviour == null ? getBlockPipe(world, pos) : behaviour.pipe;
                 for (Direction odir : Direction.values()) {
                     if (odir != direction && pipe.isConnected(odir)) {
-                        connectionDfs(world, pos.offset(odir), odir.getOpposite(), data);
+                        connectionDfs(world, pos.offset(odir), odir.getOpposite(), data, network);
                     }
                 }
             }
+        } else {
+            network.fullyLoaded = false;
         }
     }
 
@@ -97,15 +100,19 @@ public abstract class PipeBehaviourRouted extends PipeSpBehaviour {
     }
 
     public Object2IntMap<Direction> splitItem(TravellingItem item) {
-        TravellingItemAccessor accessor = (TravellingItemAccessor)item;
-        Object2IntMap<Direction> map = new Object2IntOpenHashMap<>();
-        map.put(accessor.getSide(), item.stack.getCount());
-        return map;
+        if(isActive()) {
+            TravellingItemAccessor accessor = (TravellingItemAccessor) item;
+            Object2IntMap<Direction> map = new Object2IntOpenHashMap<>();
+            map.put(accessor.getSide(), item.stack.getCount());
+            return map;
+        } else {
+            return null;
+        }
     }
 
     @Override
     protected TilePipe.PipeBlockModelState createModelState() {
-        return new PipeModelStateRouted(pipe.definition, pipe.connections, hasNetworkConnection);
+        return new PipeModelStateRouted(pipe.definition, pipe.connections, hasNetworkConnection, active);
     }
 
     @Override
@@ -114,6 +121,7 @@ public abstract class PipeBehaviourRouted extends PipeSpBehaviour {
         hasNetworkConnection = nbt.getByte("hasNetworkConnection");
         netId = nbt.getLong("networkId");
         pipeId = NbtUtil.toUuidSafe(nbt.get("pipeId"));
+        active = nbt.getBoolean("active");
     }
 
     @Override
@@ -122,7 +130,12 @@ public abstract class PipeBehaviourRouted extends PipeSpBehaviour {
         tag.putByte("hasNetworkConnection", hasNetworkConnection);
         tag.putLong("networkId", netId);
         tag.put("pipeId", NbtHelper.fromUuid(pipeId));
+        tag.putBoolean("active", active);
         return tag;
+    }
+
+    public boolean isActive() {
+        return network != null && network.fullyLoaded;
     }
 
     private void networkDfs(PipeNetwork network) {
@@ -139,7 +152,7 @@ public abstract class PipeBehaviourRouted extends PipeSpBehaviour {
                         connectionDatas.put(direction, connectionData);
                         connectionDatasDirty = true;
                         WAS.clear();
-                        connectionDfs(pipe.getPipeWorld(), pipe.getPipePos().offset(direction), direction.getOpposite(), connectionData);
+                        connectionDfs(pipe.getPipeWorld(), pipe.getPipePos().offset(direction), direction.getOpposite(), connectionData, network);
                         connectionData.size += connectionData.parts.size() - 1;
                     }
                 } else {
@@ -182,6 +195,10 @@ public abstract class PipeBehaviourRouted extends PipeSpBehaviour {
             }
             if (network.id != netId) {
                 netId = network.id;
+                refresh = true;
+            }
+            if(active != isActive()) {
+                active = isActive();
                 refresh = true;
             }
             if (refresh) {

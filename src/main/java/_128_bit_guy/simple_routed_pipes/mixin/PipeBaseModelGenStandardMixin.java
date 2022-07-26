@@ -22,7 +22,11 @@ public abstract class PipeBaseModelGenStandardMixin {
     private static void onGetSprite(SpriteSupplier sprites, TilePipe.PipeBlockModelState key, Direction face, CallbackInfoReturnable<Sprite> cir) {
         if (key instanceof PipeModelStateRouted && key.isConnected(face)) {
             if (((PipeModelStateRouted) key).hasNetworkConnection(face)) {
-                cir.setReturnValue(sprites.getBlockSprite(SRPClient.ROUTED_PIPE_CONNECTED));
+                if(((PipeModelStateRouted) key).isActive) {
+                    cir.setReturnValue(sprites.getBlockSprite(SRPClient.ROUTED_PIPE_CONNECTED));
+                } else {
+                    cir.setReturnValue(sprites.getBlockSprite(SRPClient.ROUTED_PIPE_CONNECTED_INACTIVE));
+                }
             } else {
                 cir.setReturnValue(sprites.getBlockSprite(SRPClient.ROUTED_PIPE_DISCONNECTED));
             }

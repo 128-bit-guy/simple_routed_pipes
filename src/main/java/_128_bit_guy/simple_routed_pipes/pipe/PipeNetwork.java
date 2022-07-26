@@ -10,6 +10,7 @@ public class PipeNetwork {
     public final List<PipeNetworkElement> storageProviders = new ArrayList<>();
     public long refreshTime;
     public long id;
+    public boolean fullyLoaded = true;
 
     public static long getNewId(long worldTime) {
         if (ID_REFRESH_TIME != worldTime) {

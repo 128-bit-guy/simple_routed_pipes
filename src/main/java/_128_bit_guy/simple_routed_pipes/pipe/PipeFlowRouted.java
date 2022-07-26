@@ -8,9 +8,17 @@ import alexiil.mc.mod.pipes.pipe.PipeSpFlowItem;
 import alexiil.mc.mod.pipes.pipe.TravellingItem;
 import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NbtCompound;
+import net.minecraft.nbt.NbtElement;
+import net.minecraft.nbt.NbtHelper;
+import net.minecraft.nbt.NbtList;
 import net.minecraft.util.math.Direction;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class PipeFlowRouted extends PipeSpFlowItem implements PipeFlowItemSpecialOnReachCenter {
+    public List<TravellingItem> suspendedItems = new ArrayList<>();
     public PipeFlowRouted(ISimplePipe pipe) {
         super(pipe);
     }
@@ -42,32 +50,65 @@ public class PipeFlowRouted extends PipeSpFlowItem implements PipeFlowItemSpecia
         }
 
         Object2IntMap<Direction> map = getBehaviour().splitItem(item);
+        if(map == null) {
+            suspendedItems.add(item);
+        } else {
+            long now = pipe.getWorldTime();
+            final double newSpeed = 0.08 * getSpeedModifier();
 
-        long now = pipe.getWorldTime();
-        final double newSpeed = 0.08 * getSpeedModifier();
-
-        TravellingItemAccessor acc = (TravellingItemAccessor) item;
-        ItemStack nStack = item.stack.copy();
-        for (Direction dir : Direction.values()) {
-            int cnt = map.getInt(dir);
-            if (cnt > nStack.getCount()) {
-                System.out.println("Routed pipe at " + pipe.getPipePos() + " tried to send " + cnt + " items to direction " + dir + ", but there were only " + nStack.getCount() + " items");
-                cnt = nStack.getCount();
-            }
-            if (cnt > 0) {
-                ItemStack stack = nStack.copy();
-                stack.setCount(cnt);
-                nStack.increment(-cnt);
-                if (pipe.isConnected(dir)) {
-                    addSplittedItem(stack, dir, item, now, newSpeed);
-                } else {
-                    System.out.println("Routed pipe at " + pipe.getPipePos() + " tried to send items to direction " + dir + ", but pipe has no connection at this direction");
-                    ext.simple_routed_pipes_dropItem(stack, null, acc.getSide().getOpposite(), newSpeed);
+            TravellingItemAccessor acc = (TravellingItemAccessor) item;
+            ItemStack nStack = item.stack.copy();
+            for (Direction dir : Direction.values()) {
+                int cnt = map.getInt(dir);
+                if (cnt > nStack.getCount()) {
+                    System.out.println("Routed pipe at " + pipe.getPipePos() + " tried to send " + cnt + " items to direction " + dir + ", but there were only " + nStack.getCount() + " items");
+                    cnt = nStack.getCount();
+                }
+                if (cnt > 0) {
+                    ItemStack stack = nStack.copy();
+                    stack.setCount(cnt);
+                    nStack.increment(-cnt);
+                    if (pipe.isConnected(dir)) {
+                        addSplittedItem(stack, dir, item, now, newSpeed);
+                    } else {
+                        System.out.println("Routed pipe at " + pipe.getPipePos() + " tried to send items to direction " + dir + ", but pipe has no connection at this direction");
+                        ext.simple_routed_pipes_dropItem(stack, null, acc.getSide().getOpposite(), newSpeed);
+                    }
                 }
             }
+            if (!nStack.isEmpty()) {
+                ext.simple_routed_pipes_dropItem(nStack, null, acc.getSide().getOpposite(), newSpeed);
+            }
         }
-        if(!nStack.isEmpty()) {
-            ext.simple_routed_pipes_dropItem(nStack, null, acc.getSide().getOpposite(), newSpeed);
+    }
+
+    @Override
+    public void fromTag(NbtCompound tag) {
+        super.fromTag(tag);
+        NbtList list = tag.getList("suspendedItems", NbtElement.COMPOUND_TYPE);
+        for(int i = 0; i < list.size(); ++i) {
+            suspendedItems.add(new TravellingItem(list.getCompound(i), 0));
+        }
+    }
+
+    @Override
+    public NbtCompound toTag() {
+        NbtCompound tag = super.toTag();
+        NbtList list = new NbtList();
+        for(TravellingItem item : suspendedItems) {
+            list.add(item.writeToNbt(0));
+        }
+        tag.put("suspendedItems", list);
+        return tag;
+    }
+
+    @Override
+    public void tick() {
+        super.tick();
+        List<TravellingItem> suspendedItems2 = new ArrayList<>(suspendedItems);
+        suspendedItems.clear();
+        for(TravellingItem item : suspendedItems2) {
+            onItemReachCenter2(item);
         }
     }
 }
