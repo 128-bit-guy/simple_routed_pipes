@@ -48,4 +48,18 @@ public class PipeBehaviourBasic extends PipeBehaviourRouted implements PipeNetwo
         }
         return leftStack;
     }
+
+    @Override
+    public ItemStack onItemReachDestination(ItemStack stack, UUID promiseId, ResultItemConsumer consumer) {
+        ItemStack leftStack = stack;
+        for(Direction direction : Direction.values()) {
+            ItemStack excess = pipe.getItemInsertable(direction).attemptInsertion(
+                    leftStack,
+                    Simulation.SIMULATE
+            );
+            consumer.sendItem(direction, leftStack.getCount() - excess.getCount(), null);
+            leftStack = excess;
+        }
+        return leftStack;
+    }
 }

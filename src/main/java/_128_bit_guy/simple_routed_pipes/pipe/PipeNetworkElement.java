@@ -9,4 +9,5 @@ public interface PipeNetworkElement {
     PipeBehaviourRouted getPipe();
     boolean canProvideItemStorage();
     ItemStack getInsertionExcess(ItemStack stack);
+    ItemStack onItemReachDestination(ItemStack stack, UUID promiseId, ResultItemConsumer consumer);
 }

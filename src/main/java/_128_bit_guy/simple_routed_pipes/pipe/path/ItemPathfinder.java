@@ -38,6 +38,15 @@ public class ItemPathfinder {
         return new ItemPath(list);
     }
 
+    public static ItemPath findPath(PipeBehaviourRouted from, PipeBehaviourRouted to) {
+        ItemPath[] result = new ItemPath[1];
+        findPath(from, Collections.singleton(to), node -> {
+            result[0] = buildPath(node);
+            return true;
+        });
+        return result[0];
+    }
+
     @FunctionalInterface
     public interface ItemPathfinderCallback {
         boolean onPathFound(ItemPathNode node);

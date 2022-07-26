@@ -1,6 +1,7 @@
 package _128_bit_guy.simple_routed_pipes.pipe;
 
 import _128_bit_guy.simple_routed_pipes.ext.PipeSpFlowItemExt;
+import _128_bit_guy.simple_routed_pipes.ext.TravellingItemExt;
 import _128_bit_guy.simple_routed_pipes.mixin.TravellingItemAccessor;
 import alexiil.mc.mod.pipes.pipe.ISimplePipe;
 import alexiil.mc.mod.pipes.pipe.PartSpPipe;
@@ -27,7 +28,7 @@ public class PipeFlowRouted extends PipeSpFlowItem implements PipeFlowItemSpecia
         return (PipeBehaviourRouted) ((PartSpPipe) pipe).behaviour;
     }
 
-    private void addSplittedItem(ItemStack stack, Direction direction, TravellingItem item, long now, double newSpeed) {
+    private void addSplittedItem(ItemStack stack, Direction direction, TravellingItem item, long now, double newSpeed, TravellingItemRouteData routeData) {
         TravellingItemAccessor acc = (TravellingItemAccessor) item;
         PipeSpFlowItemExt ext = (PipeSpFlowItemExt) this;
         TravellingItem newItem = new TravellingItem(stack);
@@ -38,6 +39,7 @@ public class PipeFlowRouted extends PipeSpFlowItem implements PipeFlowItemSpecia
         newAcc.setSide(direction);
         newAcc.setSpeed(newSpeed);
         newItem.genTimings(now, pipe.getPipeLength(newAcc.getSide()));
+        ((TravellingItemExt)newItem).simple_routed_pipes_setRouteData(routeData);
         ext.simple_routed_pipes_getItems().add(newAcc.getTimeToDest(), newItem);
         ext.simple_routed_pipes_sendItemDataToClient(newItem);
     }
@@ -48,37 +50,49 @@ public class PipeFlowRouted extends PipeSpFlowItem implements PipeFlowItemSpecia
         if (item.stack.isEmpty()) {
             return;
         }
-
-        Object2IntMap<Direction> map = getBehaviour().splitItem(item);
-        if(map == null) {
-            suspendedItems.add(item);
-        } else {
-            long now = pipe.getWorldTime();
-            final double newSpeed = 0.08 * getSpeedModifier();
-
-            TravellingItemAccessor acc = (TravellingItemAccessor) item;
-            ItemStack nStack = item.stack.copy();
-            for (Direction dir : Direction.values()) {
-                int cnt = map.getInt(dir);
-                if (cnt > nStack.getCount()) {
-                    System.out.println("Routed pipe at " + pipe.getPipePos() + " tried to send " + cnt + " items to direction " + dir + ", but there were only " + nStack.getCount() + " items");
-                    cnt = nStack.getCount();
+        boolean[] active = new boolean[1];
+        active[0] = true;
+        long now = pipe.getWorldTime();
+        final double newSpeed = 0.08 * getSpeedModifier();
+        ItemStack nStack = item.stack.copy();
+        TravellingItemAccessor acc = (TravellingItemAccessor) item;
+        ResultItemConsumer consumer = new ResultItemConsumer() {
+            @Override
+            public void setInactive() {
+                if(active[0]) {
+                    active[0] = false;
+                    suspendedItems.add(item);
+                } else {
+                    System.out.println("Routed pipe at " + pipe.getPipePos() + " tried to call set inactive twice");
                 }
-                if (cnt > 0) {
-                    ItemStack stack = nStack.copy();
-                    stack.setCount(cnt);
-                    nStack.increment(-cnt);
-                    if (pipe.isConnected(dir)) {
-                        addSplittedItem(stack, dir, item, now, newSpeed);
-                    } else {
-                        System.out.println("Routed pipe at " + pipe.getPipePos() + " tried to send items to direction " + dir + ", but pipe has no connection at this direction");
-                        ext.simple_routed_pipes_dropItem(stack, null, acc.getSide().getOpposite(), newSpeed);
+            }
+
+            @Override
+            public void sendItem(Direction dir, int cnt, TravellingItemRouteData routeData) {
+                if(active[0]) {
+                    if (cnt > nStack.getCount()) {
+                        System.out.println("Routed pipe at " + pipe.getPipePos() + " tried to send " + cnt + " items to direction " + dir + ", but there were only " + nStack.getCount() + " items");
+                        cnt = nStack.getCount();
                     }
+                    if (cnt > 0) {
+                        ItemStack stack = nStack.copy();
+                        stack.setCount(cnt);
+                        nStack.increment(-cnt);
+                        if (pipe.isConnected(dir)) {
+                            addSplittedItem(stack, dir, item, now, newSpeed, routeData);
+                        } else {
+                            System.out.println("Routed pipe at " + pipe.getPipePos() + " tried to send items to direction " + dir + ", but pipe has no connection at this direction");
+                            ext.simple_routed_pipes_dropItem(stack, null, acc.getSide().getOpposite(), newSpeed);
+                        }
+                    }
+                } else {
+                    System.out.println("Routed pipe at " + pipe.getPipePos()+ " tried to send items to direction " + dir +", but it already called set inactive");
                 }
             }
-            if (!nStack.isEmpty()) {
-                ext.simple_routed_pipes_dropItem(nStack, null, acc.getSide().getOpposite(), newSpeed);
-            }
+        };
+        getBehaviour().splitItem(item, consumer);
+        if (active[0] && !nStack.isEmpty()) {
+            ext.simple_routed_pipes_dropItem(nStack, null, acc.getSide().getOpposite(), newSpeed);
         }
     }
 

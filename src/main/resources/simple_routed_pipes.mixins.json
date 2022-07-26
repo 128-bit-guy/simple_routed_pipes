@@ -6,7 +6,8 @@
   "mixins": [
     "PipeSpFlowItemMixin",
     "TravellingItemAccessor",
-    "SimpleRegistryMixin"
+    "SimpleRegistryMixin",
+    "TravellingItemMixin"
   ],
   "client": [
     "PipeBaseModelGenStandardMixin",

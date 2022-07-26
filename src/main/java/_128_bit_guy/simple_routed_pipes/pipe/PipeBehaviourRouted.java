@@ -1,5 +1,6 @@
 package _128_bit_guy.simple_routed_pipes.pipe;
 
+import _128_bit_guy.simple_routed_pipes.ext.TravellingItemExt;
 import _128_bit_guy.simple_routed_pipes.mixin.TravellingItemAccessor;
 import _128_bit_guy.simple_routed_pipes.pipe.path.ItemPath;
 import _128_bit_guy.simple_routed_pipes.pipe.path.ItemPathfinder;
@@ -117,47 +118,81 @@ public abstract class PipeBehaviourRouted extends PipeSpBehaviour {
         return null;
     }
 
-    public Object2IntMap<Direction> splitItem(TravellingItem item) {
-        if(isActive()) {
-            Object2IntMap<Direction> map = new Object2IntOpenHashMap<>();
-            final ItemStack[] leftStack = {item.stack.copy()};
-            Map<PipeBehaviourRouted, List<PipeNetworkElement>> elements = new HashMap<>();
-            for(PipeNetworkElement element : network.storageProviders) {
-                if(element.getInsertionExcess(leftStack[0]).getCount() != leftStack[0].getCount()) {
-                    elements.computeIfAbsent(element.getPipe(), p -> new ArrayList<>()).add(element);
+    private void routeItem(ItemStack stack, TravellingItemRouteData data, ResultItemConsumer consumer) {
+        ItemPath path = data.path;
+        if(pipeId.equals(path.getNextNode())) {
+            path.onNodeReached();
+        }
+        if(path.isCompleted()) {
+            PipeNetworkElement element = network.elements.get(data.destination);
+            if(element == null) {
+                sortItem(stack, consumer);
+            } else {
+                ItemStack leftStack = element.onItemReachDestination(stack, data.promiseId, consumer);
+                if (leftStack.getCount() > 0) {
+                    sortItem(leftStack, consumer);
                 }
             }
-            ItemPathfinder.findPath(this, elements.keySet(), node -> {
-                ItemPath path = ItemPathfinder.buildPath(node);
-                path.onNodeReached();
-                if(path.isCompleted()) {
-                    for(Direction direction : Direction.values()) {
-                        ItemStack excess = pipe.getItemInsertable(direction).attemptInsertion(
-                                leftStack[0],
-                                Simulation.SIMULATE
-                        );
-                        map.put(direction, map.computeIfAbsent(direction, d -> 0) + leftStack[0].getCount() - excess.getCount());
-                        leftStack[0] = excess;
-                    }
-                } else {
-                    Direction direction = getMovementDirection(path.getNextNode());
-                    for(PipeNetworkElement element : elements.get(node.pipe)) {
-                        ItemStack excess = element.getInsertionExcess(leftStack[0]);
-                        map.put(direction, map.computeIfAbsent(direction, d -> 0) + leftStack[0].getCount() - excess.getCount());
-                        leftStack[0] = excess;
-                        if(leftStack[0].getCount() == 0) {
-                            return true;
-                        }
-                    }
-                }
-                return false;
-            });
-            return map;
-//            TravellingItemAccessor accessor = (TravellingItemAccessor) item;
-//            map.put(accessor.getSide(), item.stack.getCount());
-//            return map;
         } else {
-            return null;
+            Direction direction = getMovementDirection(path.getNextNode());
+            if(direction == null) {
+                if(network.elements.containsKey(data.destination)) {
+                    data.path = ItemPathfinder.findPath(this, network.elements.get(data.destination).getPipe());
+                    routeItem(stack, data, consumer);
+                } else {
+                    sortItem(stack, consumer);
+                }
+            } else {
+                consumer.sendItem(direction, stack.getCount(), data);
+            }
+        }
+    }
+
+    private void sortItem(ItemStack stack, ResultItemConsumer consumer) {
+        final ItemStack[] leftStack = {stack.copy()};
+        Map<PipeBehaviourRouted, List<PipeNetworkElement>> elements = new HashMap<>();
+        for (PipeNetworkElement element : network.storageProviders) {
+            if (element.getInsertionExcess(leftStack[0]).getCount() != leftStack[0].getCount()) {
+                elements.computeIfAbsent(element.getPipe(), p -> new ArrayList<>()).add(element);
+            }
+        }
+        ItemPathfinder.findPath(this, elements.keySet(), node -> {
+            ItemPath path = ItemPathfinder.buildPath(node);
+            for (PipeNetworkElement element : elements.get(node.pipe)) {
+                ItemStack excess = element.getInsertionExcess(leftStack[0]);
+                ItemStack newStack = stack.copy();
+                newStack.setCount(leftStack[0].getCount() - excess.getCount());
+                if(newStack.getCount() > 0) {
+                    routeItem(
+                            newStack,
+                            new TravellingItemRouteData(
+                                    path,
+                                    element.getUuid(),
+                                    new UUID(0, 0)
+                            ),
+                            consumer
+                    );
+                }
+                leftStack[0] = excess;
+                if (leftStack[0].getCount() == 0) {
+                    return true;
+                }
+            }
+            return false;
+        });
+    }
+
+    public void splitItem(TravellingItem item, ResultItemConsumer consumer) {
+        if(isActive()) {
+            TravellingItemExt ext = (TravellingItemExt) item;
+            TravellingItemRouteData routeData = ext.simple_routed_pipes_getRouteData();
+            if(routeData == null) {
+                sortItem(item.stack, consumer);
+            } else {
+                routeItem(item.stack, routeData, consumer);
+            }
+        } else {
+            consumer.setInactive();
         }
     }
 
