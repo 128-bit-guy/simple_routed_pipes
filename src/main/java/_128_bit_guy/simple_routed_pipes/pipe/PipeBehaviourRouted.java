@@ -1,13 +1,13 @@
 package _128_bit_guy.simple_routed_pipes.pipe;
 
+import _128_bit_guy.simple_routed_pipes.SRP;
 import _128_bit_guy.simple_routed_pipes.ext.TravellingItemExt;
-import _128_bit_guy.simple_routed_pipes.mixin.TravellingItemAccessor;
 import _128_bit_guy.simple_routed_pipes.pipe.path.ItemPath;
 import _128_bit_guy.simple_routed_pipes.pipe.path.ItemPathfinder;
 import _128_bit_guy.simple_routed_pipes.util.NbtUtil;
-import alexiil.mc.lib.attributes.Simulation;
 import alexiil.mc.lib.multipart.api.MultipartContainer;
 import alexiil.mc.lib.multipart.api.MultipartUtil;
+import alexiil.mc.lib.net.ParentNetIdSingle;
 import alexiil.mc.mod.pipes.blocks.BlockPipe;
 import alexiil.mc.mod.pipes.blocks.TilePipe;
 import alexiil.mc.mod.pipes.pipe.ISimplePipe;
@@ -15,15 +15,17 @@ import alexiil.mc.mod.pipes.pipe.PartSpPipe;
 import alexiil.mc.mod.pipes.pipe.PipeSpBehaviour;
 import alexiil.mc.mod.pipes.pipe.TravellingItem;
 import io.netty.util.internal.ThreadLocalRandom;
-import it.unimi.dsi.fastutil.objects.Object2IntMap;
-import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import net.minecraft.block.entity.BlockEntity;
+import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtHelper;
 import net.minecraft.text.LiteralText;
 import net.minecraft.text.Text;
+import net.minecraft.util.ActionResult;
+import net.minecraft.util.Hand;
 import net.minecraft.util.Pair;
+import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Direction;
 import net.minecraft.world.World;
@@ -31,14 +33,20 @@ import net.minecraft.world.World;
 import java.util.*;
 
 public abstract class PipeBehaviourRouted extends PipeSpBehaviour {
+    public static final ParentNetIdSingle<PipeBehaviourRouted> NET_PARENT = PartSpPipe.NET_PARENT.extractor(
+            PipeBehaviourRouted.class,
+            SRP.id("routed_pipe_behaviour").toString(),
+            b -> b.pipe,
+            p -> (PipeBehaviourRouted) p.behaviour
+    );
     private static final Set<BlockPos> WAS = new HashSet<>();
     private final Map<Direction, PipeNetworkConnectionData> connectionDatas;
     public long netId = 0;
     public PipeNetwork network;
-    private byte hasNetworkConnection;
-    private boolean connectionDatasDirty = false;
     public UUID pipeId;
     public boolean active;
+    private byte hasNetworkConnection;
+    private boolean connectionDatasDirty = false;
 
     public PipeBehaviourRouted(PartSpPipe pipe) {
         super(pipe);
@@ -105,9 +113,9 @@ public abstract class PipeBehaviourRouted extends PipeSpBehaviour {
     }
 
     public Direction getMovementDirection(UUID uuid) {
-        for(Direction direction : Direction.values()) {
+        for (Direction direction : Direction.values()) {
             PipeNetworkConnectionData connectionData = getConnectionData(direction);
-            if(connectionData != null) {
+            if (connectionData != null) {
                 for (Pair<PipeBehaviourRouted, Direction> b : connectionData.parts) {
                     if (b.getLeft().pipeId.equals(uuid)) {
                         return direction;
@@ -120,12 +128,12 @@ public abstract class PipeBehaviourRouted extends PipeSpBehaviour {
 
     private void routeItem(ItemStack stack, TravellingItemRouteData data, ResultItemConsumer consumer) {
         ItemPath path = data.path;
-        if(pipeId.equals(path.getNextNode())) {
+        if (pipeId.equals(path.getNextNode())) {
             path.onNodeReached();
         }
-        if(path.isCompleted()) {
+        if (path.isCompleted()) {
             PipeNetworkElement element = network.elements.get(data.destination);
-            if(element == null) {
+            if (element == null) {
                 sortItem(stack, consumer);
             } else {
                 ItemStack leftStack = element.onItemReachDestination(stack, data.promiseId, consumer);
@@ -135,8 +143,8 @@ public abstract class PipeBehaviourRouted extends PipeSpBehaviour {
             }
         } else {
             Direction direction = getMovementDirection(path.getNextNode());
-            if(direction == null) {
-                if(network.elements.containsKey(data.destination)) {
+            if (direction == null) {
+                if (network.elements.containsKey(data.destination)) {
                     data.path = ItemPathfinder.findPath(this, network.elements.get(data.destination).getPipe());
                     routeItem(stack, data, consumer);
                 } else {
@@ -162,7 +170,7 @@ public abstract class PipeBehaviourRouted extends PipeSpBehaviour {
                 ItemStack excess = element.getInsertionExcess(leftStack[0]);
                 ItemStack newStack = stack.copy();
                 newStack.setCount(leftStack[0].getCount() - excess.getCount());
-                if(newStack.getCount() > 0) {
+                if (newStack.getCount() > 0) {
                     routeItem(
                             newStack,
                             new TravellingItemRouteData(
@@ -183,10 +191,10 @@ public abstract class PipeBehaviourRouted extends PipeSpBehaviour {
     }
 
     public void splitItem(TravellingItem item, ResultItemConsumer consumer) {
-        if(isActive()) {
+        if (isActive()) {
             TravellingItemExt ext = (TravellingItemExt) item;
             TravellingItemRouteData routeData = ext.simple_routed_pipes_getRouteData();
-            if(routeData == null) {
+            if (routeData == null) {
                 sortItem(item.stack, consumer);
             } else {
                 routeItem(item.stack, routeData, consumer);
@@ -287,7 +295,7 @@ public abstract class PipeBehaviourRouted extends PipeSpBehaviour {
                 netId = network.id;
                 refresh = true;
             }
-            if(active != isActive()) {
+            if (active != isActive()) {
                 active = isActive();
                 refresh = true;
             }
@@ -301,5 +309,19 @@ public abstract class PipeBehaviourRouted extends PipeSpBehaviour {
 
     public Text getDebugText() {
         return new LiteralText(pipeId.toString() + ": " + netId);
+    }
+
+    protected abstract void openScreen(PlayerEntity player);
+
+    @Override
+    public ActionResult onUse(PlayerEntity player, Hand hand, BlockHitResult hit) {
+        if (player.getStackInHand(hand).isEmpty()) {
+            if (!player.world.isClient) {
+                openScreen(player);
+            }
+            return ActionResult.SUCCESS;
+        } else {
+            return ActionResult.PASS;
+        }
     }
 }
