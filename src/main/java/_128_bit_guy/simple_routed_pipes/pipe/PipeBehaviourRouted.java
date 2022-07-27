@@ -15,6 +15,7 @@ import alexiil.mc.mod.pipes.pipe.PartSpPipe;
 import alexiil.mc.mod.pipes.pipe.PipeSpBehaviour;
 import alexiil.mc.mod.pipes.pipe.TravellingItem;
 import io.netty.util.internal.ThreadLocalRandom;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
@@ -158,36 +159,38 @@ public abstract class PipeBehaviourRouted extends PipeSpBehaviour {
 
     private void sortItem(ItemStack stack, ResultItemConsumer consumer) {
         final ItemStack[] leftStack = {stack.copy()};
-        Map<PipeBehaviourRouted, List<PipeNetworkElement>> elements = new HashMap<>();
-        for (PipeNetworkElement element : network.storageProviders) {
-            if (element.getInsertionExcess(leftStack[0]).getCount() != leftStack[0].getCount()) {
-                elements.computeIfAbsent(element.getPipe(), p -> new ArrayList<>()).add(element);
+        for(Int2ObjectMap.Entry<List<PipeNetworkElement>> currentElements : network.storageProviders.int2ObjectEntrySet()) {
+            Map<PipeBehaviourRouted, List<PipeNetworkElement>> elements = new HashMap<>();
+            for (PipeNetworkElement element : currentElements.getValue()) {
+                if (element.getInsertionExcess(leftStack[0]).getCount() != leftStack[0].getCount()) {
+                    elements.computeIfAbsent(element.getPipe(), p -> new ArrayList<>()).add(element);
+                }
             }
+            ItemPathfinder.findPath(this, elements.keySet(), node -> {
+                ItemPath path = ItemPathfinder.buildPath(node);
+                for (PipeNetworkElement element : elements.get(node.pipe)) {
+                    ItemStack excess = element.getInsertionExcess(leftStack[0]);
+                    ItemStack newStack = stack.copy();
+                    newStack.setCount(leftStack[0].getCount() - excess.getCount());
+                    if (newStack.getCount() > 0) {
+                        routeItem(
+                                newStack,
+                                new TravellingItemRouteData(
+                                        path,
+                                        element.getUuid(),
+                                        new UUID(0, 0)
+                                ),
+                                consumer
+                        );
+                    }
+                    leftStack[0] = excess;
+                    if (leftStack[0].getCount() == 0) {
+                        return true;
+                    }
+                }
+                return false;
+            });
         }
-        ItemPathfinder.findPath(this, elements.keySet(), node -> {
-            ItemPath path = ItemPathfinder.buildPath(node);
-            for (PipeNetworkElement element : elements.get(node.pipe)) {
-                ItemStack excess = element.getInsertionExcess(leftStack[0]);
-                ItemStack newStack = stack.copy();
-                newStack.setCount(leftStack[0].getCount() - excess.getCount());
-                if (newStack.getCount() > 0) {
-                    routeItem(
-                            newStack,
-                            new TravellingItemRouteData(
-                                    path,
-                                    element.getUuid(),
-                                    new UUID(0, 0)
-                            ),
-                            consumer
-                    );
-                }
-                leftStack[0] = excess;
-                if (leftStack[0].getCount() == 0) {
-                    return true;
-                }
-            }
-            return false;
-        });
     }
 
     public void splitItem(TravellingItem item, ResultItemConsumer consumer) {

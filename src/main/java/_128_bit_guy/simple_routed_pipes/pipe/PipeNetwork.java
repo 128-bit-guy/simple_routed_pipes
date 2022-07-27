@@ -1,5 +1,8 @@
 package _128_bit_guy.simple_routed_pipes.pipe;
 
+import it.unimi.dsi.fastutil.ints.*;
+import org.apache.logging.log4j.util.PropertySource;
+
 import java.util.*;
 
 public class PipeNetwork {
@@ -7,7 +10,7 @@ public class PipeNetwork {
     private static long ID_REFRESH_TIME = 0;
     public final Map<UUID, PipeBehaviourRouted> pipes = new HashMap<>();
     public final Map<UUID, PipeNetworkElement> elements = new HashMap<>();
-    public final List<PipeNetworkElement> storageProviders = new ArrayList<>();
+    public final Int2ObjectSortedMap<List<PipeNetworkElement>> storageProviders = new Int2ObjectRBTreeMap<>(IntComparators.OPPOSITE_COMPARATOR);
     public long refreshTime;
     public long id;
     public boolean fullyLoaded = true;
@@ -25,7 +28,7 @@ public class PipeNetwork {
         for (PipeNetworkElement element : b.getNetworkElements()) {
             elements.put(element.getUuid(), element);
             if(element.canProvideItemStorage()) {
-                storageProviders.add(element);
+                storageProviders.computeIfAbsent(element.getSortingPriority(), i -> new ArrayList<>()).add(element);
             }
         }
     }

@@ -10,4 +10,5 @@ public interface PipeNetworkElement {
     boolean canProvideItemStorage();
     ItemStack getInsertionExcess(ItemStack stack);
     ItemStack onItemReachDestination(ItemStack stack, UUID promiseId, ResultItemConsumer consumer);
+    int getSortingPriority();
 }

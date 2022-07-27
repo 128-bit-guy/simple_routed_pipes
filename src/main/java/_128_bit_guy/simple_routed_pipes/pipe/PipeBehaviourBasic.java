@@ -137,6 +137,11 @@ public class PipeBehaviourBasic extends PipeBehaviourRouted implements PipeNetwo
     }
 
     @Override
+    public int getSortingPriority() {
+        return defaultRoute? -1000 : 100;
+    }
+
+    @Override
     public void fromNbt(NbtCompound nbt) {
         super.fromNbt(nbt);
         filterInventory.fromTag(nbt.getCompound("filterInventory"));
