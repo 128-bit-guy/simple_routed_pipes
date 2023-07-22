@@ -1,7 +1,6 @@
 package _128_bit_guy.simple_routed_pipes.pipe;
 
 import _128_bit_guy.simple_routed_pipes.SRP;
-import _128_bit_guy.simple_routed_pipes.ext.TravellingItemExt;
 import _128_bit_guy.simple_routed_pipes.pipe.path.ItemPath;
 import _128_bit_guy.simple_routed_pipes.pipe.path.ItemPathfinder;
 import _128_bit_guy.simple_routed_pipes.util.NbtUtil;
@@ -195,13 +194,7 @@ public abstract class PipeBehaviourRouted extends PipeSpBehaviour {
 
     public void splitItem(TravellingItem item, ResultItemConsumer consumer) {
         if (isActive()) {
-            TravellingItemExt ext = (TravellingItemExt) item;
-            TravellingItemRouteData routeData = ext.simple_routed_pipes_getRouteData();
-            if (routeData == null) {
-                sortItem(item.stack, consumer);
-            } else {
-                routeItem(item.stack, routeData, consumer);
-            }
+            sortItem(item.stack, consumer);
         } else {
             consumer.setInactive();
         }

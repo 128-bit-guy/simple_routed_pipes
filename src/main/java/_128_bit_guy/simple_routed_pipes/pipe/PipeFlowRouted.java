@@ -1,17 +1,14 @@
 package _128_bit_guy.simple_routed_pipes.pipe;
 
 import _128_bit_guy.simple_routed_pipes.ext.PipeSpFlowItemExt;
-import _128_bit_guy.simple_routed_pipes.ext.TravellingItemExt;
 import _128_bit_guy.simple_routed_pipes.mixin.TravellingItemAccessor;
 import alexiil.mc.mod.pipes.pipe.ISimplePipe;
 import alexiil.mc.mod.pipes.pipe.PartSpPipe;
 import alexiil.mc.mod.pipes.pipe.PipeSpFlowItem;
 import alexiil.mc.mod.pipes.pipe.TravellingItem;
-import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtElement;
-import net.minecraft.nbt.NbtHelper;
 import net.minecraft.nbt.NbtList;
 import net.minecraft.util.math.Direction;
 
@@ -39,7 +36,6 @@ public class PipeFlowRouted extends PipeSpFlowItem implements PipeFlowItemSpecia
         newAcc.setSide(direction);
         newAcc.setSpeed(newSpeed);
         newItem.genTimings(now, pipe.getPipeLength(newAcc.getSide()));
-        ((TravellingItemExt)newItem).simple_routed_pipes_setRouteData(routeData);
         ext.simple_routed_pipes_getItems().add(newAcc.getTimeToDest(), newItem);
         ext.simple_routed_pipes_sendItemDataToClient(newItem);
     }
